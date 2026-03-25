@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEOBFUSCATE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Mono:wght@400;700&display=swap');
+
+        :root {
+            --teal-accent: #00ffff;
+            --font-typewriter: "Special Elite", system-ui, sans-serif;
+            --font-display: "Space Mono", monospace;
+        }
+
+        body {
+            margin: 0;
+            background-color: #000;
+            color: var(--teal-accent);
+            font-family: var(--font-typewriter);
+            text-transform: uppercase;
+            overflow: hidden;
+            text-shadow: 0 0 2px rgba(0, 128, 128, 0.5);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+
+        .glow-text-sm {
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+        }
+
+        /* Background Grid */
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.05;
+            z-index: 5;
+            background-image: 
+                linear-gradient(var(--teal-accent) 1px, transparent 1px),
+                linear-gradient(90deg, var(--teal-accent) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* UI Frame */
+        .ui-frame {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+            border: 20px solid #000;
+        }
+
+        .ui-frame-inner {
+            width: 100%;
+            height: 100%;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .corner {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-color: rgba(0, 255, 255, 0.6);
+            border-style: solid;
+        }
+
+        .corner-tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .corner-tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+        .corner-bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+        .corner-br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+        .header-info {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            pointer-events: auto;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--teal-accent);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .header-text {
+            font-size: 10px;
+            letter-spacing: 0.4em;
+            font-family: var(--font-display);
+            opacity: 0.6;
+        }
+
+        .footer-branding {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            text-align: right;
+            pointer-events: auto;
+        }
+
+        .branding-text {
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 0.5em;
+            opacity: 0.4;
+            transition: opacity 0.3s;
+            cursor: default;
+        }
+
+        .branding-text:hover {
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Terminal */
+        #terminal {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background-color: #000;
+            padding: 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .terminal-header {
+            font-size: 10px;
+            opacity: 0.4;
+            margin-bottom: 32px;
+            letter-spacing: 0.5em;
+        }
+
+        .terminal-line {
+            font-size: 16px;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Modal */
+        #modal {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Access Denied Modal */
+        #access-denied-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        #access-denied-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .access-denied-content {
+            color: #ff0000;
+            font-family: var(--font-display);
+            font-size: 48px;
+            font-weight: bold;
+            letter-spacing: 0.2em;
+            text-align: center;
+            animation: shake 0.5s 2; /* 1 second total */
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-2px, -2px); }
+            20% { transform: translate(2px, -2px); }
+            30% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, 2px); }
+            50% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, -2px); }
+            70% { transform: translate(-2px, 2px); }
+            80% { transform: translate(2px, 2px); }
+            90% { transform: translate(-2px, -2px); }
+        }
+
+        .modal-content {
+            max-width: 512px;
+            width: 100%;
+            padding: 32px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        #close-modal {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: rgba(0, 255, 255, 0.5);
+            font-family: var(--font-typewriter);
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        #close-modal:hover {
+            color: var(--teal-accent);
+        }
+
+        .modal-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 0.2em;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        .modal-image-wrapper {
+            width: 66.666%;
+            margin: 0 auto;
+            overflow: hidden;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        #modal-image {
+            width: 100%;
+            height: auto;
+            opacity: 0.8;
+            transition: opacity 0.5s;
+        }
+
+        #modal-image:hover {
+            opacity: 1;
+        }
+
+        #modal-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.8;
+            letter-spacing: 0.05em;
+            margin: 0;
+            white-space: pre-line;
+        }
+
+        .modal-nav {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        @media (min-width: 640px) {
+            .modal-nav {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .modal-btn {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            text-decoration: none;
+            color: var(--teal-accent);
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .modal-btn:hover {
+            background-color: rgba(0, 255, 255, 0.1);
+        }
+
+        /* Cursor Label */
+        #menu-label {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+            padding: 4px 8px;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 4px;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            display: none;
+            color: var(--teal-accent);
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="terminal">
+        <div id="terminal-lines" class="space-y-2"></div>
+    </div>
+
+    <main id="main-content" style="opacity: 0; transition: opacity 1s;">
+        <div id="canvas-container" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10;">
+            <div style="width: 100%; height: 100%; max-width: 1000px; max-height: 80vh; position: relative;" id="canvas-wrapper"></div>
+        </div>
+
+        <div id="modal" class="hidden">
+            <article class="modal-content" onclick="event.stopPropagation()">
+                <button id="close-modal">[CLOSE]</button>
+
+                <header class="modal-header">
+                    <h2 id="modal-title" class="glow-text">PROJECT TITLE</h2>
+                </header>
+
+                <figure id="modal-image-container" class="hidden">
+                    <div class="modal-image-wrapper">
+                        <img id="modal-image" src="" alt="" referrerPolicy="no-referrer">
+                    </div>
+                </figure>
+
+                <p id="modal-desc"></p>
+
+                <nav class="modal-nav">
+                    <a id="modal-link" href="#" target="_blank" class="modal-btn glow-text-sm">[ README ]</a>
+                    <a id="modal-download" href="#" target="_blank" class="modal-btn glow-text-sm">[ DOWNLOAD ]</a>
+                    <a id="modal-dev" href="#" target="_blank" class="modal-btn glow-text-sm hidden">
+                        [ UNDER DEVELOPMENT ]
+                    </a>
+                </nav>
+            </article>
+        </div>
+
+        <div id="access-denied-modal" class="hidden">
+            <div class="access-denied-content">
+                [ ACCESS DENIED ]
+                <div class="text-sm mt-8 opacity-50 cursor-pointer hover:opacity-100" onclick="resetFromWarp()">[ RETURN ]</div>
+            </div>
+        </div>
+
+        <div id="menu-label" class="glow-text"></div>
+
+        <footer class="fixed bottom-4 right-4 z-10 text-right pointer-events-none">
+            <h1 id="branding-title" class="text-[9px] font-typewriter font-bold tracking-[0.4em] glow-text cursor-default opacity-30 hover:opacity-100 transition-opacity pointer-events-auto"></h1>
+        </footer>
+    </main>
+
+    <script>
+        /**
+         * DEOBFUSCATE - STANDALONE 3D INTERFACE
+         * 
+         * A self-contained version of the accretion disk visualization.
+         * Uses Three.js for 3D rendering and Tailwind CSS for UI.
+         */
+
+        // --- Terminal Logic ---
+        const terminal = document.getElementById('terminal');
+        const terminalLinesContainer = document.getElementById('terminal-lines');
+        const lines = [
+            "[ACCESSING...]",
+            "[DECOMPRESSING...]",
+            "[LOADING...]",
+            "[SYSTEM READY: WELCOME AUTHORIZED USER]"
+        ];
+        let lineIdx = 0;
+
+        function typeTerminal() {
+            if (lineIdx < lines.length) {
+                const div = document.createElement('div');
+                div.className = 'terminal-line glow-text';
+                div.textContent = lines[lineIdx];
+                terminalLinesContainer.appendChild(div);
+                lineIdx++;
+                setTimeout(typeTerminal, 400);
+            } else {
+                setTimeout(() => {
+                    terminal.style.transition = 'opacity 1s';
+                    terminal.style.opacity = '0';
+                    setTimeout(() => {
+                        terminal.style.display = 'none';
+                        document.getElementById('main-content').style.opacity = '1';
+                        startLogoTyping();
+                    }, 1000);
+                }, 1500);
+            }
+        }
+        typeTerminal();
+
+        // --- Logo Typing ---
+        const fullTitle = "DEOBFUSCATE";
+        const brandingTitle = document.getElementById('branding-title');
+        function startLogoTyping() {
+            let i = 0;
+            const timer = setInterval(() => {
+                brandingTitle.textContent = fullTitle.slice(0, i + 1);
+                i++;
+                if (i === fullTitle.length) clearInterval(timer);
+            }, 150);
+        }
+
+        // --- Three.js Blackhole ---
+        const container = document.getElementById('canvas-wrapper');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        camera.position.z = 8;
+        
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 2;
+        controls.maxDistance = 12;
+        controls.rotateSpeed = 0.5;
+
+        // Core Group
+        const coreGroup = new THREE.Group();
+        scene.add(coreGroup);
+
+        // Event Horizon: Solid black core to create the "void" effect
+        const coreGeo = new THREE.SphereGeometry(0.98, 64, 64);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        coreGroup.add(core);
+
+        // Horizontally Parallel Lines
+        for (let i = 0; i < 7; i++) {
+            const y = (i / 6) * 1.8 - 0.9;
+            const r = Math.sqrt(1 - (y * y)) * 1.01;
+            const ringGeo = new THREE.RingGeometry(r - 0.04, r + 0.04, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.y = y;
+            ring.rotation.x = Math.PI / 2;
+            coreGroup.add(ring);
+        }
+
+        // Dust Disk
+        const particlesCount = 4000;
+        const positions = new Float32Array(particlesCount * 3);
+        for (let i = 0; i < particlesCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2.0 + Math.random() * 2.5;
+            positions[i * 3] = Math.cos(angle) * radius;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 0.2;
+            positions[i * 3 + 2] = Math.sin(angle) * radius;
+        }
+        const dustGeo = new THREE.BufferGeometry();
+        dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const dustMat = new THREE.PointsMaterial({ 
+            size: 0.02, 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.5, 
+            blending: THREE.AdditiveBlending 
+        });
+        const dust = new THREE.Points(dustGeo, dustMat);
+        scene.add(dust);
+
+        // Constellations
+        const constellationLines = [];
+        const constellationCount = 40;
+        for (let i = 0; i < constellationCount; i++) {
+            const idx1 = Math.floor(Math.random() * particlesCount);
+            const idx2 = Math.floor(Math.random() * particlesCount);
+            
+            const p1 = new THREE.Vector3(positions[idx1 * 3], positions[idx1 * 3 + 1], positions[idx1 * 3 + 2]);
+            const p2 = new THREE.Vector3(positions[idx2 * 3], positions[idx2 * 3 + 1], positions[idx2 * 3 + 2]);
+            
+            const dist = p1.distanceTo(p2);
+            if (dist > 0.2 && dist < 1.2) {
+                constellationLines.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+            } else {
+                i--;
+            }
+        }
+        const constellationGeo = new THREE.BufferGeometry();
+        const constellationPositions = new Float32Array(constellationLines);
+        constellationGeo.setAttribute('position', new THREE.BufferAttribute(constellationPositions, 3));
+        const constellationMat = new THREE.LineBasicMaterial({ visible: false }); // Hide lines to match App.tsx
+        const constellations = new THREE.LineSegments(constellationGeo, constellationMat);
+        dust.add(constellations);
+
+        const constellationPointsMat = new THREE.PointsMaterial({ 
+            size: 0.04, 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.8, 
+            blending: THREE.AdditiveBlending 
+        });
+        const constellationPoints = new THREE.Points(constellationGeo, constellationPointsMat);
+        dust.add(constellationPoints);
+
+        // --- Warp Stars (Lightspeed Effect) ---
+        const warpCount = 1000;
+        const warpPositions = new Float32Array(warpCount * 6); // Start and end for each line
+        const warpVelocities = new Float32Array(warpCount);
+        for (let i = 0; i < warpCount; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const y = (Math.random() - 0.5) * 40;
+            const z = (Math.random() - 0.5) * 100 - 50;
+            warpPositions[i * 6] = x;
+            warpPositions[i * 6 + 1] = y;
+            warpPositions[i * 6 + 2] = z;
+            warpPositions[i * 6 + 3] = x;
+            warpPositions[i * 6 + 4] = y;
+            warpPositions[i * 6 + 5] = z; // Initially zero length
+            warpVelocities[i] = Math.random() * 0.5 + 0.5;
+        }
+        const warpGeo = new THREE.BufferGeometry();
+        warpGeo.setAttribute('position', new THREE.BufferAttribute(warpPositions, 3));
+        const warpMat = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending
+        });
+        const warpStars = new THREE.LineSegments(warpGeo, warpMat);
+        const warpGroup = new THREE.Group();
+        warpGroup.add(warpStars);
+        scene.add(warpGroup);
+
+        // --- Distant Blackhole ---
+        const distantBHGroup = new THREE.Group();
+        distantBHGroup.position.set(60, 35, -250);
+        scene.add(distantBHGroup);
+
+        const distantCoreGeo = new THREE.SphereGeometry(2, 32, 32);
+        const distantCoreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const distantCore = new THREE.Mesh(distantCoreGeo, distantCoreMat);
+        distantBHGroup.add(distantCore);
+
+        // Accretion Disk Dust
+        const distantDustCount = 2000;
+        const distantDustPositions = new Float32Array(distantDustCount * 3);
+        for (let i = 0; i < distantDustCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2.2 + Math.random() * 2.8;
+            distantDustPositions[i * 3] = Math.cos(angle) * radius;
+            distantDustPositions[i * 3 + 1] = (Math.random() - 0.5) * 0.15;
+            distantDustPositions[i * 3 + 2] = Math.sin(angle) * radius;
+        }
+        const distantDustGeo = new THREE.BufferGeometry();
+        distantDustGeo.setAttribute('position', new THREE.BufferAttribute(distantDustPositions, 3));
+        const distantDustMat = new THREE.PointsMaterial({ 
+            size: 0.03, 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.6, 
+            blending: THREE.AdditiveBlending 
+        });
+        const distantDust = new THREE.Points(distantDustGeo, distantDustMat);
+        distantBHGroup.add(distantDust);
+
+        // Lensed Dust (Vertical - simulates gravitational lensing)
+        const lensedDustPositions = new Float32Array(distantDustCount * 3);
+        for (let i = 0; i < distantDustCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            // Narrower radius spread to make it look like a thin line crossing the disk
+            const radius = 2.3 + Math.random() * 0.4; 
+            lensedDustPositions[i * 3] = Math.cos(angle) * radius;
+            lensedDustPositions[i * 3 + 1] = Math.sin(angle) * radius;
+            lensedDustPositions[i * 3 + 2] = (Math.random() - 0.5) * 0.05;
+        }
+        const lensedDustGeo = new THREE.BufferGeometry();
+        lensedDustGeo.setAttribute('position', new THREE.BufferAttribute(lensedDustPositions, 3));
+        const lensedDust = new THREE.Points(lensedDustGeo, distantDustMat);
+        distantBHGroup.add(lensedDust);
+
+        const distantGlowGeo = new THREE.SphereGeometry(2.1, 32, 32);
+        const distantGlowMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.2,
+            side: THREE.BackSide
+        });
+        const distantGlow = new THREE.Mesh(distantGlowGeo, distantGlowMat);
+        distantBHGroup.add(distantGlow);
+
+        // Hitbox for distant blackhole
+        const distantHitGeo = new THREE.SphereGeometry(5, 16, 16);
+        const distantHitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const distantHitBox = new THREE.Mesh(distantHitGeo, distantHitMat);
+        distantHitBox.userData = { isDistantBH: true };
+        distantBHGroup.add(distantHitBox);
+
+        // --- Cygnus Constellation (Alpha Cygni) ---
+        const cygnusGroup = new THREE.Group();
+        cygnusGroup.position.set(-180, 100, -500);
+        cygnusGroup.rotation.y = Math.PI / 6;
+        cygnusGroup.rotation.z = Math.PI * 0.4; // Rotate 20% (72 deg)
+        cygnusGroup.scale.set(15, 15, 15);
+        scene.add(cygnusGroup);
+
+        const cygnusStars = {
+            deneb: [0, 2.5, 0],
+            sadr: [0, 0.5, 0],
+            albireo: [0, -2.5, 0],
+            delta: [-2, 1, 0],
+            gienah: [2, 1, 0]
+        };
+
+        const cygnusPoints = [];
+        Object.values(cygnusStars).forEach(s => cygnusPoints.push(...s));
+        // Random stars
+        for (let i = 0; i < 70; i++) {
+            cygnusPoints.push((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 4);
+        }
+
+        const cygnusGeo = new THREE.BufferGeometry();
+        cygnusGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cygnusPoints), 3));
+        const cygnusMat = new THREE.PointsMaterial({ 
+            size: 0.2, 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.75, 
+            blending: THREE.AdditiveBlending 
+        });
+        const cygnusPointsMesh = new THREE.Points(cygnusGeo, cygnusMat);
+        cygnusGroup.add(cygnusPointsMesh);
+
+        const cygnusLines = [];
+        const s = cygnusStars;
+        cygnusLines.push(...s.deneb, ...s.sadr);
+        cygnusLines.push(...s.sadr, ...s.albireo);
+        cygnusLines.push(...s.sadr, ...s.delta);
+        cygnusLines.push(...s.sadr, ...s.gienah);
+
+        const cygnusLineGeo = new THREE.BufferGeometry();
+        cygnusLineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cygnusLines), 3));
+        const cygnusLineMat = new THREE.LineBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.3, 
+            blending: THREE.AdditiveBlending 
+        });
+        const cygnusConstellationLines = new THREE.LineSegments(cygnusLineGeo, cygnusLineMat);
+        cygnusGroup.add(cygnusConstellationLines);
+
+        // Hitbox for Cygnus
+        const cygnusHitGeo = new THREE.SphereGeometry(6, 16, 16);
+        const cygnusHitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const cygnusHitBox = new THREE.Mesh(cygnusHitGeo, cygnusHitMat);
+        cygnusHitBox.userData = { isDistantBH: true, targetGroup: cygnusGroup }; // Use same flag to trigger warp
+        cygnusGroup.add(cygnusHitBox);
+
+        // --- Interactive Menu Group ---
+        const menuGroup = new THREE.Group();
+        scene.add(menuGroup);
+        
+        const menuItems = [
+            { 
+                label: "Dub Chords", 
+                description: "Synthesizer for Dub Techno Chords & Stabs. Synthesizes minor-chords, resonant filtering and rhythmic echoes to create deep Dub Techno textures and melodies.\n\nSystem requirements :\n- macOS Sonoma, Sequoia or Tahoe\n- Intel & Apple Silicon (Universal).\n- Ableton 12+",
+                image: "dubchords.png",
+                link: "https://github.com/DeobfuscateMusic/Dub-Chords",
+                downloadLink: "https://github.com/DeobfuscateMusic/Dub-Chords/releases/download/DubChords1.0.1/DubChords1.0.1.Standalone.AU.VST3.zip"
+            },
+            { 
+                label: "Dub Stabs",
+                description: "Synthesizer for Dub Techno Chords & Stabs. Synthesizes minor-chords, resonant filtering and rhythmic echoes to create deep Dub Techno textures and melodies. Includes 5 classic hardwares synthesizers.\n\nSystem requirements :\n- macOS Sonoma, Sequoia or Tahoe\n- Intel & Apple Silicon (Universal).\n- Ableton 12+",
+                image: "dubstabs.png",
+                link: "https://github.com/DeobfuscateMusic/Dub-Stabs",
+                downloadLink: "https://github.com/DeobfuscateMusic/Dub-Stabs/releases/download/DubStabs0.9.9/DubStabs0.9.9.app.zip"
+            },
+            { 
+                label: "Dubform",
+                description: "12-bit Sampler for Dub Techno Processing. Designed specifically for deep textures and atmospheres. Combines a tape delay and a lo-fi engine with advanced spatial delays and asymmetrical saturation to deliver authentic analog warmth and industrial grit.",
+                devLink: "https://github.com/DeobfuscateMusic/Dubform"
+            },
+            { 
+                label: "Tetrad",
+                description: "Sequencers for Rhythmic & Melodic sequences. Combining kinetic physics, hardware inspired logic and probabilistic sequencing.",
+                devLink: "https://github.com/DeobfuscateMusic/Tetrad"
+            },
+            { 
+                label: "Scope",
+                description: "The Missing Screen for the T-1. High-precision, dedicated visual companion for Euclidean sequences monitoring. Translates abstract generative patterns into an atomic 3D orbital interface for real-time tracking.",
+                devLink: "https://github.com/DeobfuscateMusic/Scope"
+            },
+            { 
+                label: "Vesper",
+                description: "Effects Pedals controller for M5Stack Cardputer. Quantized and rhythmic interface for MIDI control.",
+                devLink: "https://github.com/DeobfuscateMusic/Vesper"
+            },
+            { 
+                label: "VINC3",
+                description: "3D Spectral Analysis & DSP Metering Suite. Frequency visualization and precision audio monitoring in a minimalist interface.\n\nSystem requirements :\n- macOS Sonoma, Sequoia or Tahoe\n- Intel & Apple Silicon (Universal).\n- Ableton 11+, Ableton 12+, Logic Pro & Reason.\n- Microphone permissions (for hardware input) and Screen Recording permissions (for system audio loopback).",
+                image: "vinc3.png",
+                link: "https://github.com/DeobfuscateMusic/VINC3",
+                downloadLink: "https://github.com/DeobfuscateMusic/VINC3/releases/download/VINC3-0.9.9/VINC3.app.zip"
+            }
+        ];
+
+        class Moons {
+            constructor(parent, count = 3) {
+                this.group = new THREE.Group();
+                parent.add(this.group);
+                this.moons = [];
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const radius = 0.25;
+                    const y = (Math.random() - 0.5) * 0.15;
+                    
+                    const geo = new THREE.SphereGeometry(0.015, 6, 6);
+                    const mat = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ffff, 
+                        transparent: true, 
+                        opacity: 0.8, 
+                        blending: THREE.AdditiveBlending 
+                    });
+                    const moon = new THREE.Mesh(geo, mat);
+                    moon.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+                    this.group.add(moon);
+                }
+            }
+            update() {
+                this.group.rotation.y += 0.005;
+            }
+        }
+
+        const menuPoints = [];
+        const moonsList = [];
+
+        menuItems.forEach((item, index) => {
+            const angle = (index / menuItems.length) * Math.PI * 2;
+            const radius = 2.8;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = (Math.random() - 0.5) * 0.1;
+
+            const pointGroup = new THREE.Group();
+            pointGroup.position.set(x, y, z);
+            menuGroup.add(pointGroup);
+
+            const isLarge = ["Dub Chords", "Dub Stabs", "VINC3"].includes(item.label);
+            const baseScale = isLarge ? 2.0 : 1;
+
+            // Inner Sphere (Wireframe)
+            const innerGeo = new THREE.SphereGeometry(1, 6, 6);
+            const innerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+            const inner = new THREE.Mesh(innerGeo, innerMat);
+            inner.scale.set(baseScale * 0.04, baseScale * 0.04, baseScale * 0.04);
+            pointGroup.add(inner);
+
+            // Outer Sphere (Wireframe)
+            const outerGeo = new THREE.SphereGeometry(1, 8, 8);
+            const outerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending });
+            const outer = new THREE.Mesh(outerGeo, outerMat);
+            outer.scale.set(baseScale * 0.1, baseScale * 0.1, baseScale * 0.1);
+            pointGroup.add(outer);
+
+            // Central Dot (Solid)
+            const dotGeo = new THREE.SphereGeometry(0.0075, 8, 8);
+            const dotMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
+            const dot = new THREE.Mesh(dotGeo, dotMat);
+            dot.scale.set(baseScale, baseScale, baseScale);
+            pointGroup.add(dot);
+            
+            inner.userData = { 
+                label: item.label, 
+                description: item.description, 
+                image: item.image, 
+                link: item.link, 
+                downloadLink: item.downloadLink,
+                devLink: item.devLink,
+                outer: outer,
+                dot: dot,
+                baseScale: baseScale,
+                position: pointGroup.position.clone()
+            };
+
+            // Larger invisible hit-box for easier interaction
+            const hitGeo = new THREE.SphereGeometry(0.6, 16, 16);
+            const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+            const hitBox = new THREE.Mesh(hitGeo, hitMat);
+            pointGroup.add(hitBox);
+
+            hitBox.userData = inner.userData;
+            hitBox.userData.visualPoint = inner; // Reference to the inner point for hover effects
+            
+            const moonCount = ["VINC3", "Dub Stabs", "Dub Chords"].includes(item.label) ? 3 : 0;
+            if (moonCount > 0) {
+                const moons = new Moons(pointGroup, moonCount);
+                moonsList.push(moons);
+            }
+            
+            menuPoints.push(hitBox);
+        });
+
+        const light = new THREE.PointLight(0x00ffff, 5, 10);
+        scene.add(light);
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        // --- Raycasting & Hover ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(-2, -2); // Initialize outside NDC to avoid center hits
+        let mouseMoved = false;
+        const menuLabel = document.getElementById('menu-label');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalImage = document.getElementById('modal-image');
+        const modalImageContainer = document.getElementById('modal-image-container');
+        const modalLink = document.getElementById('modal-link');
+        const modalDownload = document.getElementById('modal-download');
+        const modalDev = document.getElementById('modal-dev');
+        const closeModal = document.getElementById('close-modal');
+        const accessDeniedModal = document.getElementById('access-denied-modal');
+
+        let isAnimating = false;
+        let isWarping = false;
+        let warpProgress = 0;
+        let selectedHitBox = null;
+        let targetCameraPos = new THREE.Vector3(0, 0, 8);
+        let targetLookAt = new THREE.Vector3(0, 0, 0);
+
+        function startWarp(targetGroup = distantBHGroup) {
+            isWarping = true;
+            isAnimating = false;
+            controls.enabled = false;
+            targetLookAt.copy(targetGroup.position);
+            // Better angle to see the disk/constellation
+            targetCameraPos.copy(targetGroup.position).add(new THREE.Vector3(0, 4, 15));
+            
+            // Orient warp stars towards the target
+            warpGroup.lookAt(targetGroup.position);
+            
+            // Fade in warp stars
+            warpMat.opacity = 0.8;
+        }
+
+        function resetFromWarp() {
+            accessDeniedModal.classList.remove('active');
+            setTimeout(() => accessDeniedModal.classList.add('hidden'), 500);
+            
+            isWarping = false;
+            warpProgress = 0;
+            warpMat.opacity = 0;
+            
+            camera.position.set(0, 0, 8);
+            controls.target.set(0, 0, 0);
+            controls.enabled = true;
+            targetCameraPos.set(0, 0, 8);
+            targetLookAt.set(0, 0, 0);
+        }
+
+        function showModal(data, hitBox) {
+            selectedHitBox = hitBox;
+            const worldPos = new THREE.Vector3();
+            hitBox.getWorldPosition(worldPos);
+            
+            targetLookAt.copy(worldPos);
+            targetCameraPos.copy(worldPos).normalize().multiplyScalar(4.5);
+            isAnimating = true;
+            controls.enabled = false; // Disable controls during zoom
+
+            // Delay showing modal to allow zoom transition, matching App.tsx behavior
+            setTimeout(() => {
+                modalTitle.textContent = data.label;
+                const desc = data.description || "System data corrupted or unavailable.";
+                const parts = desc.split("System requirements :");
+                if (parts.length > 1) {
+                    modalDesc.innerHTML = `${parts[0]}<div style="margin-top: 16px; font-size: 10px; opacity: 0.6; line-height: 1.4; border-top: 1px solid rgba(0, 255, 255, 0.1); padding-top: 16px;"><span style="font-weight: bold; display: block; margin-bottom: 4px;">System requirements :</span>${parts[1].trim()}</div>`;
+                } else {
+                    modalDesc.textContent = desc;
+                }
+                
+                if (data.image) {
+                    modalImage.src = data.image;
+                    modalImage.alt = data.label;
+                    modalImageContainer.classList.remove('hidden');
+                } else {
+                    modalImageContainer.classList.add('hidden');
+                }
+
+                if (data.link) {
+                    modalLink.href = data.link;
+                    modalLink.classList.remove('hidden');
+                } else {
+                    modalLink.classList.add('hidden');
+                }
+
+                if (data.downloadLink) {
+                    modalDownload.href = data.downloadLink;
+                    modalDownload.classList.remove('hidden');
+                } else {
+                    modalDownload.classList.add('hidden');
+                }
+
+                if (data.devLink) {
+                    modalDev.href = data.devLink;
+                    modalDev.classList.remove('hidden');
+                } else {
+                    modalDev.classList.add('hidden');
+                }
+
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('active'), 10);
+            }, 800);
+        }
+
+        function hideModal() {
+            selectedHitBox = null;
+            const dir = camera.position.clone().normalize();
+            targetCameraPos.copy(dir).multiplyScalar(8);
+            targetLookAt.set(0, 0, 0);
+            isAnimating = true;
+            controls.enabled = false; // Disable controls during zoom
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        closeModal.onclick = (e) => {
+            e.stopPropagation();
+            hideModal();
+        };
+        
+        modal.onclick = (e) => {
+            if (e.target === modal) hideModal();
+        };
+
+        // Prevent modal content clicks from closing the modal
+        document.querySelector('.modal-content').onclick = (e) => {
+            e.stopPropagation();
+        };
+
+        let hoveredPoint = null;
+        let pointerDownPos = { x: 0, y: 0 };
+
+        const updateMousePos = (e) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.clientX !== undefined) {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            } else if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            }
+            
+            if (clientX !== undefined) {
+                mouseMoved = true;
+                mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+                
+                menuLabel.style.left = `${clientX + 15}px`;
+                menuLabel.style.top = `${clientY - 15}px`;
+            }
+        };
+
+        window.addEventListener('pointermove', updateMousePos);
+        window.addEventListener('pointerdown', (e) => {
+            updateMousePos(e);
+            const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0].clientY);
+            pointerDownPos = { x: clientX, y: clientY };
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            const isModalActive = !accessDeniedModal.classList.contains('hidden') || !modal.classList.contains('hidden');
+            if (isModalActive) return;
+
+            const clientX = e.clientX !== undefined ? e.clientX : (e.changedTouches && e.changedTouches[0].clientX);
+            const clientY = e.clientY !== undefined ? e.clientY : (e.changedTouches && e.changedTouches[0].clientY);
+            
+            const dist = Math.hypot(clientX - pointerDownPos.x, clientY - pointerDownPos.y);
+            if (dist < 20) {
+                updateMousePos(e);
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects([...menuPoints, distantHitBox, cygnusHitBox]);
+                
+                if (intersects.length > 0) {
+                    const hitBox = intersects[0].object;
+                    if (hitBox.userData.isDistantBH) {
+                        startWarp(hitBox.userData.targetGroup || distantBHGroup);
+                    } else {
+                        const point = hitBox.userData.visualPoint;
+                        showModal(point.userData, hitBox);
+                    }
+                }
+            }
+        });
+
+        /**
+         * MAIN ANIMATION LOOP
+         * 
+         * Handles the rotation of the accretion disk, core, and menu items.
+         * Also manages camera interpolation and raycasting for interactions.
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = Date.now() * 0.001;
+            const rotationSpeed = 0.04; // Reduced by 20% from 0.05
+            
+            if (isWarping) {
+                warpProgress += 0.01;
+                
+                // Camera moves towards distant blackhole
+                camera.position.lerp(targetCameraPos, 0.05);
+                controls.target.lerp(targetLookAt, 0.05);
+                
+                // Stretch stars effect
+                const positions = warpGeo.attributes.position.array;
+                for (let i = 0; i < warpCount; i++) {
+                    const speed = warpVelocities[i] * 5;
+                    // Move stars from target towards camera (along local -Z)
+                    positions[i * 6 + 2] -= speed; // Start point
+                    positions[i * 6 + 5] = positions[i * 6 + 2] + speed * 2; // End point (trail)
+                    
+                    if (positions[i * 6 + 2] < -50) {
+                        positions[i * 6 + 2] = 50;
+                        positions[i * 6 + 5] = 50;
+                    }
+                }
+                warpGeo.attributes.position.needsUpdate = true;
+                
+                // Stretch dust particles too
+                dustMat.size = 0.02 + warpProgress * 0.5;
+                
+                if (camera.position.distanceTo(targetCameraPos) < 2) {
+                    isWarping = false;
+                    accessDeniedModal.classList.remove('hidden');
+                    
+                    // Re-trigger shake animation
+                    const content = accessDeniedModal.querySelector('.access-denied-content');
+                    content.style.animation = 'none';
+                    content.offsetHeight; // trigger reflow
+                    content.style.animation = ''; // Reset to CSS default
+                    
+                    setTimeout(() => accessDeniedModal.classList.add('active'), 10);
+                }
+            } else {
+                // Reset dust size if not warping
+                dustMat.size = 0.02;
+                
+                // Slowed down sphere rotation
+                coreGroup.rotation.y = time * 0.04;
+                
+                // Dust accretion disk rotation
+                dust.rotation.y = time * rotationSpeed;
+                dust.position.y = Math.sin(time * 0.5) * 0.05;
+
+                // Menu items rotate with the disk
+                menuGroup.rotation.y = time * rotationSpeed;
+                menuGroup.position.y = Math.sin(time * 0.5) * 0.05;
+
+                // Update moons
+                moonsList.forEach(moons => moons.update());
+
+                // Rotate distant blackhole dust (slowed down)
+                distantBHGroup.children.forEach((child, idx) => {
+                    if (child instanceof THREE.Points) {
+                        if (idx === 1) { // Horizontal disk
+                            child.rotation.y += 0.002;
+                        } else if (idx === 2) { // Vertical lensed disk
+                            child.rotation.z += 0.002;
+                        }
+                    }
+                });
+
+                if (selectedHitBox) {
+                    const worldPos = new THREE.Vector3();
+                    selectedHitBox.getWorldPosition(worldPos);
+                    targetLookAt.copy(worldPos);
+                    targetCameraPos.copy(worldPos).normalize().multiplyScalar(4.5);
+                    
+                    camera.position.lerp(targetCameraPos, 0.1);
+                    controls.target.lerp(targetLookAt, 0.1);
+                } else if (isAnimating) {
+                    camera.position.lerp(targetCameraPos, 0.1);
+                    controls.target.lerp(targetLookAt, 0.1);
+                    if (camera.position.distanceTo(targetCameraPos) < 0.05) {
+                        isAnimating = false;
+                        controls.enabled = true; // Re-enable controls
+                    }
+                }
+            }
+            
+            controls.update();
+
+            // Raycasting
+            raycaster.setFromCamera(mouse, camera);
+            const isModalActive = !accessDeniedModal.classList.contains('hidden') || !modal.classList.contains('hidden');
+            const intersects = (isModalActive || !mouseMoved) ? [] : raycaster.intersectObjects([...menuPoints, distantHitBox, cygnusHitBox]);
+
+            if (intersects.length > 0) {
+                document.body.style.cursor = 'pointer';
+                const hitBox = intersects[0].object;
+                if (hitBox.userData.isDistantBH) {
+                    menuLabel.textContent = "[ UNKNOWN ]";
+                    menuLabel.style.display = 'block';
+                    renderer.domElement.style.cursor = 'pointer';
+                } else {
+                    const point = hitBox.userData.visualPoint;
+                    if (hoveredPoint !== point) {
+                        // Reset previous
+                        if (hoveredPoint) {
+                            const oldBaseScale = hoveredPoint.userData.baseScale;
+                            hoveredPoint.material.opacity = 0.8;
+                            hoveredPoint.scale.set(oldBaseScale * 0.04, oldBaseScale * 0.04, oldBaseScale * 0.04);
+                            if (hoveredPoint.userData.outer) {
+                                hoveredPoint.userData.outer.material.opacity = 0.4;
+                                hoveredPoint.userData.outer.scale.set(oldBaseScale * 0.1, oldBaseScale * 0.1, oldBaseScale * 0.1);
+                            }
+                            if (hoveredPoint.userData.dot) {
+                                hoveredPoint.userData.dot.material.opacity = 0.6;
+                                hoveredPoint.userData.dot.scale.set(oldBaseScale, oldBaseScale, oldBaseScale);
+                            }
+                        }
+                        
+                        hoveredPoint = point;
+                        menuLabel.textContent = point.userData.label;
+                        menuLabel.style.display = 'block';
+                        renderer.domElement.style.cursor = 'pointer';
+                        point.material.opacity = 1.0;
+                        
+                        const baseScale = point.userData.baseScale;
+                        const hoverScale = 1.5;
+                        point.scale.set(baseScale * 0.04 * hoverScale, baseScale * 0.04 * hoverScale, baseScale * 0.04 * hoverScale);
+                        
+                        if (point.userData.outer) {
+                            point.userData.outer.material.opacity = 0.9;
+                            point.userData.outer.scale.set(baseScale * 0.1 * hoverScale, baseScale * 0.1 * hoverScale, baseScale * 0.1 * hoverScale);
+                        }
+                        if (point.userData.dot) {
+                            point.userData.dot.material.opacity = 1.0;
+                            point.userData.dot.scale.set(baseScale * hoverScale, baseScale * hoverScale, baseScale * hoverScale);
+                        }
+                    }
+                }
+            } else {
+                document.body.style.cursor = 'auto';
+                if (hoveredPoint) {
+                    const baseScale = hoveredPoint.userData.baseScale;
+                    hoveredPoint.material.opacity = 0.8;
+                    hoveredPoint.scale.set(baseScale * 0.04, baseScale * 0.04, baseScale * 0.04);
+                    if (hoveredPoint.userData.outer) {
+                        hoveredPoint.userData.outer.material.opacity = 0.4;
+                        hoveredPoint.userData.outer.scale.set(baseScale * 0.1, baseScale * 0.1, baseScale * 0.1);
+                    }
+                    if (hoveredPoint.userData.dot) {
+                        hoveredPoint.userData.dot.material.opacity = 0.6;
+                        hoveredPoint.userData.dot.scale.set(baseScale, baseScale, baseScale);
+                    }
+                    hoveredPoint = null;
+                    menuLabel.style.display = 'none';
+                    renderer.domElement.style.cursor = 'default';
+                } else {
+                    menuLabel.style.display = 'none';
+                    renderer.domElement.style.cursor = 'default';
+                }
+            }
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>
